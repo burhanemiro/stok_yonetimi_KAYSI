@@ -1,23 +1,20 @@
 #include "mainwindow.h"
-#include "./ui_mainwindow.h"
+#include "ui_mainwindow.h"
 #include "malzemegirisformu.h"
 #include "malzemecikisformu.h"
 #include "malzemestokformu.h"
+#include "tutanak.h"
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QTextStream>
 #include <QFile>
 #include <QDateTime>
 #include <QDir>
-
+#include <QDebug> // qDebug ekledik
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , malzemeGirisFormu(nullptr)
-    , malzemeCikisFormu(nullptr)
-    , malzemeStokFormu(nullptr)
-    , tutanak(nullptr)
 {
     ui->setupUi(this);
 
@@ -44,9 +41,13 @@ MainWindow::~MainWindow()
 {
     delete ui;
 
-    delete malzemeGirisFormu;
-    delete malzemeCikisFormu;
-    delete tutanak;
+    // Formları sil
+    QMapIterator<QString, QDialog*> i(formlar);
+    while (i.hasNext()) {
+        i.next();
+        delete i.value();
+    }
+    formlar.clear();
 }
 
 void MainWindow::yeniProje()
@@ -54,7 +55,6 @@ void MainWindow::yeniProje()
     QString dosyaYolu = QFileDialog::getSaveFileName(this, tr("Yeni Proje Oluştur"),
                                                      QDir::homePath(),
                                                      tr("Proje Dosyası (*.proje);;Tüm Dosyalar (*)"));
-
     if (dosyaYolu.isEmpty()) {
         QMessageBox::warning(this, tr("Uyarı"), tr("Bir proje adı girilmedi!"));
         return;
@@ -63,8 +63,8 @@ void MainWindow::yeniProje()
     if (!dosyaYolu.endsWith(".proje"))
         dosyaYolu += ".proje";
 
-    aktifProjeYolu = QDir::cleanPath(QFileInfo(dosyaYolu).absolutePath());
-    aktifProjeAdi = QFileInfo(dosyaYolu).baseName();
+    projeYolu = QDir::cleanPath(QFileInfo(dosyaYolu).absolutePath());
+    projeAdi = QFileInfo(dosyaYolu).baseName();
 
     QFile projeDosyasi(dosyaYolu);
     if (!projeDosyasi.open(QIODevice::WriteOnly | QIODevice::Text)) {
@@ -73,12 +73,11 @@ void MainWindow::yeniProje()
     }
 
     QTextStream out(&projeDosyasi);
-    out << "Proje Adı: " << aktifProjeAdi << "\n";
+    out << "Proje Adı: " << projeAdi << "\n";
     out << "Oluşturma Tarihi: " << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss") << "\n";
-    out << "Proje Yolu: " << aktifProjeYolu << "\n";
+    out << "Proje Yolu: " << projeYolu << "\n";
     projeDosyasi.close();
-
-    QMessageBox::information(this, tr("Başarılı"), tr("Proje başarıyla oluşturuldu: ") + aktifProjeYolu);
+    QMessageBox::information(this, tr("Başarılı"), tr("Proje başarıyla oluşturuldu: ") + projeYolu);
 
     formlaraProjeYoluAta();
 }
@@ -88,31 +87,29 @@ void MainWindow::projeYukle()
     QString dosyaYolu = QFileDialog::getOpenFileName(this, tr("Proje Yükle"),
                                                      QDir::homePath(),
                                                      tr("Proje Dosyası (*.proje);;Tüm Dosyalar (*)"));
-
     if (dosyaYolu.isEmpty()) {
         QMessageBox::warning(this, tr("Uyarı"), tr("Bir proje seçilmedi!"));
         return;
     }
 
-    aktifProjeYolu = QDir::cleanPath(QFileInfo(dosyaYolu).absolutePath());
-    aktifProjeAdi = QFileInfo(dosyaYolu).baseName();
+    projeYolu = QDir::cleanPath(QFileInfo(dosyaYolu).absolutePath());
+    projeAdi = QFileInfo(dosyaYolu).baseName();
 
-    QMessageBox::information(this, tr("Başarılı"), tr("Proje başarıyla yüklendi: ") + aktifProjeYolu);
+    QMessageBox::information(this, tr("Başarılı"), tr("Proje başarıyla yüklendi: ") + projeYolu);
 
     formlaraProjeYoluAta();
 }
 
 void MainWindow::projeyiKaydet()
 {
-    if (aktifProjeYolu.isEmpty()) {
+    if (projeYolu.isEmpty()) {
         QMessageBox::warning(this, tr("Uyarı"), tr("Kayıt için bir proje yüklenmedi veya oluşturulmadı!"));
         return;
     }
 
     QString dosyaYolu = QFileDialog::getSaveFileName(this, tr("Projeyi Kaydet"),
-                                                     aktifProjeYolu,
+                                                     projeYolu,
                                                      tr("Proje Dosyası (*.proje);;Tüm Dosyalar (*)"));
-
     if (dosyaYolu.isEmpty()) {
         QMessageBox::warning(this, tr("Uyarı"), tr("Bir dosya adı girilmedi!"));
         return;
@@ -128,9 +125,8 @@ void MainWindow::projeyiKaydet()
     }
 
     QTextStream out(&dosya);
-    out << "Proje Yolu: " << aktifProjeYolu << "\n";
+    out << "Proje Yolu: " << projeYolu << "\n";
     dosya.close();
-
     QMessageBox::information(this, tr("Başarılı"), tr("Proje başarıyla kaydedildi: ") + dosyaYolu);
 }
 
@@ -156,78 +152,92 @@ void MainWindow::on_pushButton_stok_clicked()
 
 void MainWindow::malzemeGirisi()
 {
-    if (!malzemeGirisFormu) {
-        malzemeGirisFormu = new MalzemeGirisFormu(this);
-        malzemeGirisFormu->setProjeYolu(aktifProjeYolu);
-        malzemeGirisFormu->setProjeAdi(aktifProjeAdi);
+    MalzemeGirisFormu *form = qobject_cast<MalzemeGirisFormu*>(getForm("malzemeGirisi"));
+    if (!form) {
+        form = new MalzemeGirisFormu(this);
+        form->setProjeYolu(projeYolu);
+        form->setProjeAdi(projeAdi);
+        addForm("malzemeGirisi", form);
     }
-
-    malzemeGirisFormu->show();
+    form->show();
 }
 
 void MainWindow::malzemeCikisi()
 {
-    if (!malzemeCikisFormu) {
-        malzemeCikisFormu = new MalzemeCikisFormu(this,aktifProjeAdi, aktifProjeYolu);
-        malzemeCikisFormu->setProjeYolu(aktifProjeYolu);
-        malzemeCikisFormu->setProjeAdi(aktifProjeAdi);
+    MalzemeCikisFormu *form = qobject_cast<MalzemeCikisFormu*>(getForm("malzemeCikisi"));
+    if (!form) {
+        form = new MalzemeCikisFormu(this);
+        form->setProjeYolu(projeYolu);
+        form->setProjeAdi(projeAdi);
+        addForm("malzemeCikisi", form);
     }
-
-    malzemeCikisFormu->show();
+    form->show();
 }
 
 void MainWindow::malzemeStok()
 {
-    if (!malzemeStokFormu) {
-        malzemeStokFormu = new MalzemeStokFormu(this);
-        malzemeStokFormu->setProjeYolu(aktifProjeYolu);
-        malzemeStokFormu->setProjeAdi(aktifProjeAdi);
+    MalzemeStokFormu *form = qobject_cast<MalzemeStokFormu*>(getForm("malzemeStok"));
+    if (!form) {
+        form = new MalzemeStokFormu(this);
+        form->setProjeYolu(projeYolu);
+        form->setProjeAdi(projeAdi);
+        addForm("malzemeStok", form);
     }
-
-    malzemeStokFormu->show();
+    form->show();
 }
 
 void MainWindow::malzemeTutanak()
 {
-    qDebug() << "MainWindow::malzemeTutanak() çalıştı";
-    qDebug() << "Aktarılacak projeAdi: " << aktifProjeAdi;
-    qDebug() << "Aktarılacak projeYolu: " << aktifProjeYolu;
-
-    if (aktifProjeAdi.isEmpty() || aktifProjeYolu.isEmpty()) {
-        QMessageBox::warning(this, tr("Uyarı"), tr("Lütfen önce bir proje oluşturun veya yükleyin!"));
-        return;
+    QDialog *form = getForm("tutanak");
+    if (!form) {
+        form = new Tutanak(this);
+        if (projeAdi.isEmpty() || projeYolu.isEmpty()) {
+            QMessageBox::warning(this, tr("Uyarı"), tr("Lütfen önce bir proje oluşturun veya yükleyin!"));
+            delete form;
+            return;
+        }
+        Tutanak *tutanakForm = qobject_cast<Tutanak*>(form);
+        tutanakForm->setProjeYolu(projeYolu);
+        tutanakForm->setProjeAdi(projeAdi);
+        addForm("tutanak", form);
     }
-
-    if (!tutanak) {
-        tutanak = new Tutanak(this,aktifProjeAdi, aktifProjeYolu);
-        tutanak->setProjeAdi(aktifProjeAdi);
-        tutanak->setProjeYolu(aktifProjeYolu);
-    }
-    tutanak->setModal(true);
-    tutanak->show();
-    tutanak->raise();
-    tutanak->activateWindow();
+    form->setModal(true);
+    form->show();
+    form->raise();
+    form->activateWindow();
 }
 
 void MainWindow::formlaraProjeYoluAta()
 {
-    if (malzemeGirisFormu) {
-        malzemeGirisFormu->setProjeYolu(aktifProjeYolu);
-        malzemeGirisFormu->setProjeAdi(aktifProjeAdi);
+    QMapIterator<QString, QDialog*> i(formlar);
+    while (i.hasNext()) {
+        i.next();
+        MalzemeGirisFormu *girisFormu = qobject_cast<MalzemeGirisFormu*>(i.value());
+        MalzemeCikisFormu *cikisFormu = qobject_cast<MalzemeCikisFormu*>(i.value());
+        MalzemeStokFormu *stokFormu = qobject_cast<MalzemeStokFormu*>(i.value());
+        Tutanak *tutanakFormu = qobject_cast<Tutanak*>(i.value());
+        if (girisFormu) {
+            girisFormu->setProjeYolu(projeYolu);
+            girisFormu->setProjeAdi(projeAdi);
+        } else if (cikisFormu) {
+            cikisFormu->setProjeYolu(projeYolu);
+            cikisFormu->setProjeAdi(projeAdi);
+        } else if (stokFormu) {
+            stokFormu->setProjeYolu(projeYolu);
+            stokFormu->setProjeAdi(projeAdi);
+        } else if (tutanakFormu) {
+            tutanakFormu->setProjeYolu(projeYolu);
+            tutanakFormu->setProjeAdi(projeAdi);
+        }
     }
+}
 
-    if (malzemeCikisFormu) {
-        malzemeCikisFormu->setProjeYolu(aktifProjeYolu);
-        malzemeCikisFormu->setProjeAdi(aktifProjeAdi);
-    }
+QDialog* MainWindow::getForm(const QString &formAdi)
+{
+    return formlar.value(formAdi, nullptr);
+}
 
-    if (malzemeStokFormu) {
-        malzemeStokFormu->setProjeYolu(aktifProjeYolu);
-        malzemeStokFormu->setProjeAdi(aktifProjeAdi);
-    }
-
-    if (tutanak) {
-        delete tutanak;
-        tutanak = nullptr;
-    }
+void MainWindow::addForm(const QString &formAdi, QDialog *form)
+{
+    formlar.insert(formAdi, form);
 }

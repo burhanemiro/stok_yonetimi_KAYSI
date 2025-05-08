@@ -14,18 +14,16 @@
 #include <QList>
 #include <QWidget>
 
-
 MalzemeStokFormu::MalzemeStokFormu(QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::MalzemeStokFormu)
 {
     ui->setupUi(this);
-
     connect(ui->pushButtonGoster, &QPushButton::clicked, this, &MalzemeStokFormu::on_pushButtonGoster_clicked);
     connect(ui->pushButtonYenile, &QPushButton::clicked, this, &MalzemeStokFormu::on_pushButtonYenile_clicked);
     connect(ui->lineEdit_8, &QLineEdit::textChanged, this, &MalzemeStokFormu::on_lineEdit_8_textChanged);
 
-    verileriYukle();
+    //verileriYukle(); // Bu metot, setProjeAdi ve setProjeYolu'ndan sonra çağrılacak
 }
 
 MalzemeStokFormu::~MalzemeStokFormu()
@@ -35,33 +33,40 @@ MalzemeStokFormu::~MalzemeStokFormu()
 
 void MalzemeStokFormu::setProjeAdi(const QString &adi)
 {
+    if (adi.isEmpty()) {
+        QMessageBox::warning(this, "Hata", "Proje adı boş olamaz!");
+        return;
+    }
     projeAdi = adi;
-
-    girisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_giris.txt");
-    cikisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_cikis.txt");
-    stokDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_stok.txt");
+    //girisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_giris.txt");
+    //cikisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_cikis.txt");
+    //stokDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_stok.txt");
+    qDebug() << "setProjeAdi - projeAdi: " << projeAdi;
+    verileriYukle();
 }
 
 void MalzemeStokFormu::setProjeYolu(const QString &yol)
 {
+    if (yol.isEmpty()) {
+        QMessageBox::warning(this, "Hata", "Proje yolu boş olamaz!");
+        return;
+    }
     projeYolu = yol;
-
-    girisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_giris.txt");
-    cikisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_cikis.txt");
-    stokDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_stok.txt");
-
-    // Loglama
-    qDebug() << "Giriş Dosyası:" << girisDosyaAdi;
-    qDebug() << "Çıkış Dosyası:" << cikisDosyaAdi;
-    qDebug() << "Stok Dosyası:" << stokDosyaAdi;
-
+    //girisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_giris.txt");
+    //cikisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_cikis.txt");
+    //stokDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_stok.txt");
+    qDebug() << "setProjeYolu - projeYolu: " << projeYolu;
     verileriYukle();
 }
 
 QMap<QString, int> MalzemeStokFormu::girisVerileriOku()
 {
     QMap<QString, int> giris;
-
+    if (projeYolu.isEmpty() || projeAdi.isEmpty()) {
+        QMessageBox::warning(this, "Hata", "Proje adı veya yolu ayarlanmamış! Lütfen proje bilgilerini kontrol edin.");
+        return giris;
+    }
+    girisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_giris.txt");
     QFile file(girisDosyaAdi);
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QTextStream in(&file);
@@ -82,7 +87,11 @@ QMap<QString, int> MalzemeStokFormu::girisVerileriOku()
 QMap<QString, int> MalzemeStokFormu::cikisVerileriOku()
 {
     QMap<QString, int> cikis;
-
+    if (projeYolu.isEmpty() || projeAdi.isEmpty()) {
+        QMessageBox::warning(this, "Hata", "Proje adı veya yolu ayarlanmamış! Lütfen proje bilgilerini kontrol edin.");
+        return cikis;
+    }
+    cikisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_cikis.txt");
     QFile file(cikisDosyaAdi);
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QTextStream in(&file);
@@ -102,19 +111,24 @@ QMap<QString, int> MalzemeStokFormu::cikisVerileriOku()
 
 void MalzemeStokFormu::verileriYukle()
 {
+    if (projeYolu.isEmpty() || projeAdi.isEmpty()) {
+        QMessageBox::warning(this, "Hata", "Proje adı veya yolu ayarlanmamış! Lütfen proje bilgilerini kontrol edin.");
+        return;
+    }
+    girisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_giris.txt");
+    cikisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_cikis.txt");
+    stokDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_stok.txt");
+
     // TableWidget'ı temizle
     ui->tableWidget_stok->clearContents();
     ui->tableWidget_stok->setRowCount(0);
-
     // Kolon başlıklarını ayarla
     ui->tableWidget_stok->setColumnCount(4);
     QStringList basliklar = {"Ürün Adı", "Toplam Giriş", "Toplam Çıkış", "Stok"};
     ui->tableWidget_stok->setHorizontalHeaderLabels(basliklar);
-
     // Giriş ve çıkış verilerini oku
     QMap<QString, int> girisler = girisVerileriOku();
     QMap<QString, int> cikislar = cikisVerileriOku();
-
     // Tüm ürünlerin listesini oluştur
     QStringList urunler = girisler.keys();
     for (const QString &urun : cikislar.keys()) {
@@ -130,7 +144,8 @@ void MalzemeStokFormu::verileriYukle()
     }
 
     // Stok dosyasını aç
-    QFile stokDosyasi(stokDosyaAdi); // stokDosyaAdi değişkeni kullanılacak
+    QFile stokDosyasi(stokDosyaAdi);
+    // stokDosyaAdi değişkeni kullanılacak
     if (!stokDosyasi.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QMessageBox::critical(this, "Hata", "Stok dosyası açılamadı: " + stokDosyasi.errorString());
         return;
@@ -148,7 +163,6 @@ void MalzemeStokFormu::verileriYukle()
 
         // Debug: Eklenmeye çalışılan verileri göster
         qDebug() << "Eklenecek Ürün:" << urun << ", Giriş:" << giris << ", Çıkış:" << cikis << ", Stok:" << stok;
-
         // TableWidget'a ekleme
         ui->tableWidget_stok->insertRow(satir);
         ui->tableWidget_stok->setItem(satir, 0, new QTableWidgetItem(urun));
@@ -158,7 +172,6 @@ void MalzemeStokFormu::verileriYukle()
 
         // Stok dosyasına yaz
         out << urun << "," << giris << "," << cikis << "," << stok << "\n";
-
         satir++;
     }
 
@@ -166,7 +179,6 @@ void MalzemeStokFormu::verileriYukle()
 
     qDebug() << "TableWidget Row Count:" << ui->tableWidget_stok->rowCount();
     qDebug() << "TableWidget Column Count:" << ui->tableWidget_stok->columnCount();
-
     QMessageBox::information(this, "Başarılı", "Stok bilgileri başarıyla yüklendi ve kaydedildi: " + stokDosyaAdi);
 }
 
@@ -179,6 +191,10 @@ void MalzemeStokFormu::on_pushButtonYenile_clicked()
 {
     ui->tableWidget_stok->setRowCount(0);
 
+    if (projeYolu.isEmpty() || projeAdi.isEmpty()) {
+        QMessageBox::warning(this, "Hata", "Proje adı veya yolu ayarlanmamış! Lütfen proje bilgilerini kontrol edin.");
+        return;
+    }
     QFile file(QDir(projeYolu).filePath(projeAdi + "_stok.txt"));
     if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         file.close();
@@ -208,11 +224,11 @@ void MalzemeStokFormu::on_pushButtonYazdir_clicked()
 
     int rowCount = ui->tableWidget_stok->rowCount();
     int colCount = ui->tableWidget_stok->columnCount();
-
     for (int i = 0; i < rowCount; ++i) {
         html += "<tr>";
         for (int j = 0; j < colCount; ++j) {
-            QString text = ui->tableWidget_stok->item(i, j) ? ui->tableWidget_stok->item(i, j)->text() : "";
+            QString text = ui->tableWidget_stok->item(i, j) ?
+                               ui->tableWidget_stok->item(i, j)->text() : "";
             html += "<td>" + text + "</td>";
         }
         html += "</tr>";

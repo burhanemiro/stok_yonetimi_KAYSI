@@ -8,8 +8,7 @@
 #include <QDialog>
 #include <QListWidget>
 #include <QListWidgetItem>
-#include <QString>
-#include "malzemestokformu.h"
+//#include <QString> // QString'i kaldırdık
 
 namespace Ui {
 class MalzemeGirisFormu;
@@ -26,6 +25,7 @@ public:
     // Dinamik proje adı ayarlamak için
     void setProjeYolu(const QString &yol); // Proje yolunu ayarlamak için fonksiyon
     void setProjeAdi(const QString &adi); // Proje adını ayarlamak için fonksiyon
+
 protected:
     // Event filter
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -45,17 +45,16 @@ private slots:
 
 private:
     Ui::MalzemeGirisFormu *ui;        // Kullanıcı arayüzü
-    QString projeAdi; // Proje adı
+    QString projeAdi; // Proje adı // QString'leri kaldırdık
     QString projeYolu;            // Dinamik proje adı
     QListWidget *onerilerListesi;     // Öneri listesi widget'ı
-    QStringList urunAdlariListesi;    // Ürün adlarını tutan liste
+    QStringList urunAdlariListesi;
+    // Ürün adlarını tutan liste
     QString cikisDosyaAdi;
     QString stokDosyaAdi;
     QString girisDosyaAdi;
     // Yardımcı işlevler
     void urunAdlariYukle();           // Ürün adlarını dosyadan yükler
-    MalzemeStokFormu *malzemeStokFormu;  // Stok formu penceresi
-    void guncelleDosyaYollari();  // Dosya yollarını güncelle
 };
 
 #endif // MALZEMEGIRISFORMU_H

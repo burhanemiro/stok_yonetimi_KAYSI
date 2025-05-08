@@ -13,27 +13,21 @@
 
 MalzemeGirisFormu::MalzemeGirisFormu(QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::MalzemeGirisFormu), malzemeStokFormu(nullptr)
+    , ui(new Ui::MalzemeGirisFormu)
 {
     ui->setupUi(this);
-
-    // Event Filter'ları kur
     ui->lineEdit_1->installEventFilter(this);
     ui->lineEdit_2->installEventFilter(this);
     ui->lineEdit_3->installEventFilter(this);
     ui->lineEdit_4->installEventFilter(this);
 
-    // Tab sırasını ayarla
     setTabOrder(ui->lineEdit_1, ui->lineEdit_2);
     setTabOrder(ui->lineEdit_2, ui->lineEdit_3);
     setTabOrder(ui->lineEdit_3, ui->lineEdit_4);
     setTabOrder(ui->lineEdit_4, ui->pushButtonKaydet);
 
-    // Öneri listesi oluşturma
     onerilerListesi = new QListWidget(this);
     onerilerListesi->hide();
-
-    // Buton bağlantıları
     connect(ui->pushButtonKaydet, &QPushButton::clicked, this, &MalzemeGirisFormu::on_pushButtonKaydet_clicked);
     connect(ui->pushButtonStokDurumu, &QPushButton::clicked, this, &MalzemeGirisFormu::on_pushButtonStokDurumu_clicked);
     connect(onerilerListesi, &QListWidget::itemClicked, this, &MalzemeGirisFormu::onerilerdenSecildi);
@@ -42,11 +36,6 @@ MalzemeGirisFormu::MalzemeGirisFormu(QWidget *parent)
 MalzemeGirisFormu::~MalzemeGirisFormu()
 {
     delete ui;
-
-    // Stok penceresi açık kalmışsa sil
-    if (malzemeStokFormu != nullptr) {
-        delete malzemeStokFormu;
-    }
 }
 
 void MalzemeGirisFormu::setProjeYolu(const QString &yol)
@@ -57,7 +46,7 @@ void MalzemeGirisFormu::setProjeYolu(const QString &yol)
     }
 
     projeYolu = QDir::cleanPath(yol);
-    guncelleDosyaYollari();
+    qDebug() << "Proje Yolu Ayarlandı: " << projeYolu;
 }
 
 void MalzemeGirisFormu::setProjeAdi(const QString &adi)
@@ -68,14 +57,8 @@ void MalzemeGirisFormu::setProjeAdi(const QString &adi)
     }
 
     projeAdi = adi;
-    guncelleDosyaYollari();
-}
-
-void MalzemeGirisFormu::guncelleDosyaYollari()
-{
     girisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_giris.txt");
     stokDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_stok.txt");
-
     qDebug() << "Proje Adı: " << projeAdi;
     qDebug() << "Giriş Dosyası: " << girisDosyaAdi;
 
@@ -97,11 +80,10 @@ bool MalzemeGirisFormu::eventFilter(QObject *obj, QEvent *event)
 void MalzemeGirisFormu::urunAdlariYukle()
 {
     urunAdlariListesi.clear();
-
     QFile dosya(girisDosyaAdi);
     if (!dosya.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qDebug() << "Giriş dosyası bulunamadı: " << girisDosyaAdi;
         return;
+        // Dosya yoksa uyarı gerekmez çünkü ilk defa açılıyor olabilir
     }
 
     QTextStream stream(&dosya);
@@ -119,7 +101,6 @@ void MalzemeGirisFormu::urunAdlariYukle()
 void MalzemeGirisFormu::on_lineEdit_1_textChanged(const QString &text)
 {
     onerilerListesi->clear();
-
     if (text.isEmpty()) {
         onerilerListesi->hide();
         return;
@@ -134,6 +115,8 @@ void MalzemeGirisFormu::on_lineEdit_1_textChanged(const QString &text)
     if (onerilerListesi->count() > 0) {
         QPoint pos = ui->lineEdit_1->mapTo(this, QPoint(0, ui->lineEdit_1->height()));
         onerilerListesi->move(pos);
+
+        onerilerListesi->setStyleSheet("border: 1px solid gray; background-color: white; font-size: 12px;");
         onerilerListesi->show();
     } else {
         onerilerListesi->hide();
@@ -191,14 +174,9 @@ void MalzemeGirisFormu::onerilerdenSecildi(QListWidgetItem *item)
 
 void MalzemeGirisFormu::on_pushButtonStokDurumu_clicked()
 {
-    if (malzemeStokFormu == nullptr || !malzemeStokFormu->isVisible()) {
-        malzemeStokFormu = new MalzemeStokFormu(this);
-        malzemeStokFormu->setProjeAdi(projeAdi);
-        malzemeStokFormu->setProjeYolu(projeYolu);
-        malzemeStokFormu->setAttribute(Qt::WA_DeleteOnClose);
-        malzemeStokFormu->show();
-    } else {
-        malzemeStokFormu->raise();
-        malzemeStokFormu->activateWindow();
-    }
+    MalzemeStokFormu *stokPenceresi = new MalzemeStokFormu(this);
+    stokPenceresi->setProjeAdi(projeAdi);
+    stokPenceresi->setProjeYolu(projeYolu);
+    stokPenceresi->setModal(true);
+    stokPenceresi->exec();
 }

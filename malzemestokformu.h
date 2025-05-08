@@ -39,8 +39,8 @@ private:
     Ui::MalzemeStokFormu *ui;
 
     // Dosya yolları
-    QString projeAdi;
-    QString projeYolu;
+    QString projeAdi; // Kaldırıldı
+    QString projeYolu; // Kaldırıldı
     QString girisDosyaAdi;
     QString cikisDosyaAdi;
     QString stokDosyaAdi;

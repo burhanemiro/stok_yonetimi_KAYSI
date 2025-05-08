@@ -11,36 +11,27 @@
 #include <QString>
 #include <QList>
 #include <QWidget>
+#include <QKeyEvent>
 
-
-Tutanak::Tutanak(QWidget *parent, const QString &adi, const QString &yol) :
+Tutanak::Tutanak(QWidget *parent) : // Constructor güncellendi
     QDialog(parent),
-    ui(new Ui::Tutanak),
-    projeAdi(adi),
-    projeYolu(yol)
-
+    ui(new Ui::Tutanak)
 {
     ui->setupUi(this);
     qDebug() << "Tutanak constructor çağrıldı";
-    qDebug() << "Alınan projeAdi: " << projeAdi;
-    qDebug() << "Alınan projeYolu: " << projeYolu;
 
-    cikisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_cikis.txt");
-    qDebug() << "cikisDosyaAdi: " << cikisDosyaAdi;
+    ui->lineEdit_10->installEventFilter(this);
+    ui->lineEdit_11->installEventFilter(this);
 
+    setTabOrder(ui->lineEdit_10, ui->lineEdit_11);
+    setTabOrder(ui->lineEdit_11, ui->pushButtonKayit);
 
     // Malzeme ekle butonu ile malzeme listesini yükleyen fonksiyon bağlanacak
     connect(ui->pushButtonMek, &QPushButton::clicked, this, &Tutanak::on_pushButtonMek_clicked);
-
     // Kaydet butonu ile seçilen verilerin dosyaya yazılacağı fonksiyon
     connect(ui->pushButtonKayit, &QPushButton::clicked, this, &Tutanak::on_pushButtonKayit_clicked);
-
     // Yazdır butonu ile PDF veya TXT çıktısı alınacak fonksiyon
     connect(ui->pushButtonYaz, &QPushButton::clicked, this, &Tutanak::on_pushButtonYaz_clicked);
-
-    cikisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_cikis.txt");
-    qDebug() << "cikisDosyaAdi: " << cikisDosyaAdi;
-
 }
 
 Tutanak::~Tutanak()
@@ -48,30 +39,47 @@ Tutanak::~Tutanak()
     delete ui;
 }
 
+// Proje yolunu ayarla
+void Tutanak::setProjeYolu(const QString &yol)
+{
+    projeYolu = yol;
+    //cikisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_cikis.txt");
+    qDebug() << "Tutanak::setProjeYolu çağrıldı, projeYolu: " << projeYolu;
+}
+
 // Proje adını ayarla
 void Tutanak::setProjeAdi(const QString &adi)
 {
     if (adi.isEmpty()) return;
     projeAdi = adi;
-    cikisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_cikis.txt");
-    qDebug() << "Tutanak::setProjeAdi çağrıldı, projeAdi: " << projeAdi << ", cikisDosyaAdi: " << cikisDosyaAdi;
-
+    //cikisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_cikis.txt");
+    qDebug() << "Tutanak::setProjeAdi çağrıldı, projeAdi: " << projeAdi;
 }
 
-// Proje yolunu ayarla
-void Tutanak::setProjeYolu(const QString &yol)
+// Event Filter
+bool Tutanak::eventFilter(QObject *obj, QEvent *event)
 {
-    projeYolu = yol;
-    cikisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_cikis.txt");
-    qDebug() << "Tutanak::setProjeYolu çağrıldı, projeYolu: " << projeYolu << ", cikisDosyaAdi: " << cikisDosyaAdi;
-
+    if (event->type() == QEvent::KeyPress) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+        if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
+            QWidget::focusNextChild();
+            return true;
+        }
+    }
+    return QObject::eventFilter(obj, event);
 }
 
 // Malzeme Ekle
 void Tutanak::on_pushButtonMek_clicked()
 {
     qDebug() << "on_pushButtonMek_clicked() çalıştı";
-    qDebug() << "cikisDosyaAdi: " << cikisDosyaAdi; // Hata ayıklama
+
+    if (projeYolu.isEmpty() || projeAdi.isEmpty()) {
+        QMessageBox::warning(this, "Hata", "Proje bilgileri eksik!");
+        return;
+    }
+
+    cikisDosyaAdi = QDir(projeYolu).filePath(projeAdi + "_cikis.txt");
 
     if (cikisDosyaAdi.isEmpty()) {
         QMessageBox::warning(this, "Hata", "Proje bilgileri eksik!");
@@ -79,7 +87,6 @@ void Tutanak::on_pushButtonMek_clicked()
     }
 
     qDebug() << "cikisDosyaAdi: " << cikisDosyaAdi;
-
     if (!QFile::exists(cikisDosyaAdi)) {
         QMessageBox::warning(this, "Hata", "Çıkış dosyası bulunamadı: " + cikisDosyaAdi);
         return;
@@ -121,7 +128,6 @@ void Tutanak::on_pushButtonMek_clicked()
     file.close();
 
     qDebug() << "on_pushButtonMek_clicked() bitti";
-
 }
 
 // Kaydet
@@ -144,7 +150,6 @@ void Tutanak::on_pushButtonKayit_clicked()
     out << "Teslim Alan: " << ui->lineEdit_10->text() << "\n";
     out << "Tarih: " << ui->lineEdit_11->text() << "\n";
     out << "Teslim Edilen Malzemeler:\n";
-
     for (int row = 0; row < ui->tableWidget_tutanak->rowCount(); ++row) {
         QWidget *widget = ui->tableWidget_tutanak->cellWidget(row, 2);
         QCheckBox *checkBox = qobject_cast<QCheckBox *>(widget);
@@ -154,6 +159,9 @@ void Tutanak::on_pushButtonKayit_clicked()
             out << "- " << malzeme << " (" << miktar << ")\n";
         }
     }
+    ui->lineEdit_10->clear();
+    ui->lineEdit_11->clear();
+    ui->lineEdit_10->setFocus();
 
     file.close();
     QMessageBox::information(this, "Kayıt", "Tutanak başarıyla kaydedildi:\n" + filename);
@@ -169,7 +177,6 @@ void Tutanak::on_pushButtonYaz_clicked()
 
     QPainter painter(&printer);
     int yPos = 100;
-
     painter.drawText(100, yPos, "Teslim Alan: " + ui->lineEdit_10->text());
     yPos += 30;
     painter.drawText(100, yPos, "Tarih: " + ui->lineEdit_11->text());

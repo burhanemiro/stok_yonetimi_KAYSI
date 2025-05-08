@@ -1,14 +1,12 @@
+//MainWindow.h (Başlık Dosyası):
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include "malzemegirisformu.h"
-#include "malzemecikisformu.h"
-#include "malzemestokformu.h"
-#include "tutanak.h" // Tutanak formunu dahil ettik
 #include <QString>
+#include <QMap> // Formları saklamak için QMap ekledik
 
-QT_BEGIN_NAMESPACE
+    QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
 
@@ -28,7 +26,6 @@ private slots:
     void on_pushButton_giris_clicked();
     void on_pushButton_cikis_clicked();
     void on_pushButton_stok_clicked();
-
     void yeniProje();
     void projeYukle();
     void projeyiKaydet();
@@ -41,14 +38,14 @@ private slots:
 private:
     Ui::MainWindow *ui;
 
-    MalzemeGirisFormu *malzemeGirisFormu;
-    MalzemeCikisFormu *malzemeCikisFormu;
-    MalzemeStokFormu *malzemeStokFormu;
-    Tutanak *tutanak; // Tutanak formu için üye değişken
-    QString aktifProjeYolu;
-    QString aktifProjeAdi;
+    QMap<QString, QDialog*> formlar; // Formları saklamak için QMap
+
+    QString projeYolu;
+    QString projeAdi;
 
     void formlaraProjeYoluAta();
+    QDialog* getForm(const QString &formAdi); // Formu QMap'ten al
+    void addForm(const QString &formAdi, QDialog *form); // Formu QMap'e ekle
 };
 
 #endif // MAINWINDOW_H
